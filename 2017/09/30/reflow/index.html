@@ -94,13 +94,19 @@
 
 
 
-<meta property="og:type" content="website">
-<meta property="og:title" content="Zepo&#39;s blog">
-<meta property="og:url" content="https://zepo.github.io/index.html">
+<meta name="description" content="背景当我们在写Objective-C代码时，会习惯性地把model对象的属性定义为nonatomic。如果该属性是被多线程访问的，那么这样做是有可能crash的。我们可以简单地模拟一下： 12345678910111213141516171819202122// Conversation.h@interface Conversation : NSObject@property (nonatomic">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Objective-C单向数据流方案">
+<meta property="og:url" content="https://zepo.github.io/2017/09/30/reflow/index.html">
 <meta property="og:site_name" content="Zepo&#39;s blog">
+<meta property="og:description" content="背景当我们在写Objective-C代码时，会习惯性地把model对象的属性定义为nonatomic。如果该属性是被多线程访问的，那么这样做是有可能crash的。我们可以简单地模拟一下： 12345678910111213141516171819202122// Conversation.h@interface Conversation : NSObject@property (nonatomic">
 <meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://zepo.github.io/images/reflow/redux.png">
+<meta property="og:updated_time" content="2017-09-30T08:56:24.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Zepo&#39;s blog">
+<meta name="twitter:title" content="Objective-C单向数据流方案">
+<meta name="twitter:description" content="背景当我们在写Objective-C代码时，会习惯性地把model对象的属性定义为nonatomic。如果该属性是被多线程访问的，那么这样做是有可能crash的。我们可以简单地模拟一下： 12345678910111213141516171819202122// Conversation.h@interface Conversation : NSObject@property (nonatomic">
+<meta name="twitter:image" content="https://zepo.github.io/images/reflow/redux.png">
 
 
 
@@ -129,13 +135,13 @@
 
 
 
-  <link rel="canonical" href="https://zepo.github.io/"/>
+  <link rel="canonical" href="https://zepo.github.io/2017/09/30/reflow/"/>
 
 
 
 
 
-  <title>Zepo's blog</title>
+  <title>Objective-C单向数据流方案 | Zepo's blog</title>
   
 
 
@@ -154,9 +160,7 @@
     
   
 
-  <div class="container sidebar-position-left 
-   page-home 
- ">
+  <div class="container sidebar-position-left page-post-detail ">
     <div class="headband"></div>
 
     <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
@@ -229,9 +233,9 @@
         <div class="content-wrap">
           <div id="content" class="content">
             
-  <section id="posts" class="posts-expand">
+
+  <div id="posts" class="posts-expand">
     
-      
 
   
 
@@ -261,9 +265,7 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2017/09/30/reflow/" itemprop="url">Objective-C单向数据流方案</a></h1>
+          <h1 class="post-title" itemprop="name headline">Objective-C单向数据流方案</h1>
         
 
         <div class="post-meta">
@@ -324,9 +326,7 @@
       
 
       
-        
-          
-            <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>当我们在写Objective-C代码时，会习惯性地把model对象的属性定义为<code>nonatomic</code>。如果该属性是被多线程访问的，那么这样做是有可能crash的。我们可以简单地模拟一下：</p>
+        <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>当我们在写Objective-C代码时，会习惯性地把model对象的属性定义为<code>nonatomic</code>。如果该属性是被多线程访问的，那么这样做是有可能crash的。我们可以简单地模拟一下：</p>
 <figure class="highlight objc"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// Conversation.h</span></div><div class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">Conversation</span> : <span class="title">NSObject</span></span></div><div class="line"><span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">copy</span>) <span class="built_in">NSArray</span> *messages;</div><div class="line"><span class="keyword">@end</span></div><div class="line"></div><div class="line"><span class="comment">// xxx.m</span></div><div class="line">- (<span class="keyword">void</span>)methodA</div><div class="line">&#123;</div><div class="line">    Conversation *conversation = [[Conversation alloc] init];</div><div class="line">    </div><div class="line">    <span class="built_in">dispatch_async</span>(dispatch_get_global_queue(<span class="number">0</span>, <span class="number">0</span>), ^&#123;</div><div class="line">        <span class="keyword">while</span> (<span class="number">1</span>) &#123;</div><div class="line">            conversation.messages = [[<span class="built_in">NSArray</span> alloc] initWithObjects:@<span class="number">1</span>, @<span class="number">2</span>, @<span class="number">3</span>, <span class="literal">nil</span>];</div><div class="line">        &#125;</div><div class="line">    &#125;);</div><div class="line">    </div><div class="line">    <span class="built_in">dispatch_async</span>(dispatch_get_global_queue(<span class="number">0</span>, <span class="number">0</span>), ^&#123;</div><div class="line">        <span class="keyword">while</span> (<span class="number">1</span>) &#123;</div><div class="line">            <span class="built_in">NSLog</span>(<span class="string">@"%@"</span>, conversation.messages);</div><div class="line">        &#125;</div><div class="line">    &#125;);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>调用上面的<code>methodA</code>方法，程序在运行时会抛出<code>EXC_BAD_ACCESS</code>异常。</p>
 <p>如果把属性定义为<code>atomic</code>，我们能避免上面的crash，但仍然存在其他多线程带来的问题。比如竞争条件（race condition）问题，数据一致性问题等等。另外，由于属性是可变的，我们可以在程序的任意地方修改该属性，如果该属性作为某个页面的展示数据，那么我们需要在所有修改的地方发出通知以刷新页面。如果该属性对应的是<code>UITableView</code>的<code>cells</code>，修改该属性而没有通知到<code>UITableView</code>做<code>reloadData</code>的话同样会导致crash。</p>
@@ -372,8 +372,6 @@
 <li><a href="https://code.facebook.com/posts/1154141864616569/building-and-managing-ios-model-objects-with-remodel/" target="_blank" rel="external">Building and managing iOS model objects with Remodel</a></li>
 </ul>
 
-          
-        
       
     </div>
     
@@ -390,239 +388,28 @@
       
 
       
-
-      
-
       
       
-        <div class="post-eof"></div>
+
       
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://zepo.github.io/2017/08/18/functional-programming/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Zepo">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="https://avatars3.githubusercontent.com/u/11935315?v=4&amp;s=460">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Zepo's blog">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2017/08/18/functional-programming/" itemprop="url">函数式编程通俗简介</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
             
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-08-18T11:23:19+08:00">
-                2017-08-18
-              </time>
+              <a href="/2017/08/18/functional-programming/" rel="next" title="函数式编程通俗简介">
+                <i class="fa fa-chevron-left"></i> 函数式编程通俗简介
+              </a>
             
+          </div>
 
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
             
-
-            
-          </span>
-
-          
-
-          
-            
-              <span class="post-comments-count">
-                <span class="post-meta-divider">|</span>
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-comment-o"></i>
-                </span>
-                <a href="/2017/08/18/functional-programming/#comments" itemprop="discussionUrl">
-                  <span class="post-comments-count disqus-comment-count"
-                        data-disqus-identifier="2017/08/18/functional-programming/" itemprop="commentCount"></span>
-                </a>
-              </span>
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
+          </div>
         </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
       
 
       
-        
-          
-            <p><strong>函数式编程</strong>（<strong>functional programming</strong>）是一种与<strong>面向对象编程</strong>和<strong>过程式编程</strong>并列的编程范式。函数式编程来源于数学学科，因此有很多的数学理论方面的约束，但同时也得益于数学性框架带来的种种好处。很多初学者在接触函数式编程时都会感觉不适应，认为函数式编程很抽象，学习成本很高。本文试图通过一种通俗易懂的方式，来向大家介绍函数式编程是什么，以及更重要的，我们为什么要用函数式编程。</p>
-<h2 id="从初中数学入手"><a href="#从初中数学入手" class="headerlink" title="从初中数学入手"></a>从初中数学入手</h2><p>函数式编程来源于一门叫<strong>范畴论</strong>（<strong>category theory</strong>）的数学分支。范畴论这门学科同样也是很抽象的，因此，我们不直接从范畴论入手。但范畴论作为一门数学学科，它跟其它数学学科一样使用普遍的数学定义，遵从一般的数学定理。从这些我们已经熟知的数学定义和定理入手，会使学习函数式编程更简单，理解更深刻。</p>
-<p>我们先来回顾一下初中<strong>数学函数</strong>的定义（下面的定义来自于维基百科）：</p>
-<blockquote>
-<p>函数在数学中为两集合间的一种对应关系：输入值集合中的每项元素皆能对应唯一一项输出值集合中的元素。</p>
-</blockquote>
-<p>关于这个数学函数的定义有两个特点要强调一下:</p>
-<ul>
-<li>函数的输入只有一个元素，或者说函数的输入参数只有一个</li>
-<li>对于相同的输入，函数的输出总是固定不变的，不管函数执行几次</li>
-</ul>
-<p>在函数式编程里，我们使用的函数与数学函数一样，同样满足以上两个特点。你可能会认为第一个特点的限制太严格了，通常在编程里的函数都有好几个参数，如果限制一个参数我们的函数会很不灵活。我们将在后面介绍如何解决这个问题，下面我们先来看第二个特点。</p>
-<h2 id="纯函数"><a href="#纯函数" class="headerlink" title="纯函数"></a>纯函数</h2><p>我们把满足上面第二个特点的函数称作<strong>纯函数</strong>（<strong>pure function</strong>）：</p>
-<blockquote>
-<p>纯函数是这样一种函数，即相同的输入，永远会得到相同的输出，而且没有任何可观察的副作用。</p>
-</blockquote>
-<p>这里的<strong>副作用</strong>（<strong>side effect</strong>）包含但不限于以下几种情况：</p>
-<ul>
-<li>访问磁盘文件，包括数据库</li>
-<li>发起网络请求</li>
-<li>使用全局变量</li>
-<li>修改任意变量的值，包括输入参数</li>
-<li>刷新界面或打印日志</li>
-</ul>
-<p>可以说，任何与函数外部的东西打交道都是不允许的，外部的信息只能通过参数传进函数，同样的，函数只能通过输出将信息传出到外部。</p>
-<p>你可能会觉得很不可思议，如果连读写磁盘，发起网络请求，刷新界面这些都不可以，那么这个程序还有什么意义。实际上，函数式编程并不是不允许这些，而是强调要把这些副作用隔离开，我们将在后面简单提及用什么方法来解决。</p>
-<p>使用纯函数带来很多好外：</p>
-<ul>
-<li>可缓存性：对于同样的输入，输出是固定的，因此我们可以把输出结果缓存起来，避免重复计算。</li>
-<li>可移植性：函数不依赖任何外部的东西，跟外部没有任何耦合。</li>
-<li>可测试性：函数的运行结果不依赖于任何外部环境，完全由输入参数决定。</li>
-<li>可并发性：函数不访问任何公共变量或公共资源，没有资源竞争的问题。</li>
-</ul>
-<h2 id="复合函数"><a href="#复合函数" class="headerlink" title="复合函数"></a>复合函数</h2><p>我们来复习第二个数学定义，复合函数（同样来自维基百科）：</p>
-<blockquote>
-<p>给定两个函数f : X → Y和g : Y → Z，其中f的陪域等于g的定义域（称为f、g可复合），则其复合函数，记为g ∘ f，以X为定义域，Z为陪域，并将任意x∈X映射为g(f(x))。有时也省略复合记号“∘”，直接写作g f。</p>
-</blockquote>
-<p>在函数式编程的世界里，构建程序其实就是在合成函数。通过把一些功能单一的可复用的纯函数合成复杂的函数，以此完成复杂的任务。因此，我们需要一个方法来合成函数（以Javascript代码为例）：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> compose = <span class="function"><span class="keyword">function</span>(<span class="params">f, g</span>) </span>&#123;</div><div class="line">  <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params">x</span>) </span>&#123;</div><div class="line">    <span class="keyword">return</span> f(g(x));</div><div class="line">  &#125;;</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
-<p>函数的复合满足<strong>结合律</strong>：若f、g可复合，g、h可复合，则有：</p>
-<blockquote>
-<p>h ∘ (g ∘ f) = (h ∘ g) ∘ f</p>
-</blockquote>
-<p>即：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">compose(f, compose(g, h));</div><div class="line"><span class="comment">// equal</span></div><div class="line">compose(compose(f, g), h);</div></pre></td></tr></table></figure>
-<p>由于上述两种组合方式产生的函数是一样的，为了使用更方便简洁，我们有必要把<code>compose</code>方法扩展一下，以使它接受任意多的函数作为参数：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">compose(f, g, h);</div></pre></td></tr></table></figure>
-<h2 id="柯里化"><a href="#柯里化" class="headerlink" title="柯里化"></a>柯里化</h2><p>上面我们遗留了一个问题，函数式编程里的函数接受的参数只能有一个，而我们实际项目中已经存在很多有用的函数，它们接受多个参数。我们如何在函数式编程里复用这些多个参数的函数呢？</p>
-<p>这里要用到一个叫<strong>柯里化</strong>（<strong>currying</strong>）的概念。不要被这个名字吓到，其实柯里化的原理很简单：只传递给函数一部分参数，并生成一个新的函数去处理剩下的参数。而且有很多库已经实现了<code>curry</code>函数：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> curry = <span class="built_in">require</span>(<span class="string">'lodash/curry'</span>);</div><div class="line"></div><div class="line"><span class="keyword">var</span> match = curry(<span class="function"><span class="keyword">function</span>(<span class="params">what, str</span>) </span>&#123;</div><div class="line">  <span class="keyword">return</span> str.match(what);</div><div class="line">&#125;);</div><div class="line"></div><div class="line">match(<span class="regexp">/\s+/g</span>, <span class="string">'hello world'</span>);</div><div class="line"><span class="comment">// [ ' ' ]</span></div><div class="line"></div><div class="line">match(<span class="regexp">/\s+/g</span>)(<span class="string">'hello world'</span>);</div><div class="line"><span class="comment">// [ ' ' ]</span></div></pre></td></tr></table></figure>
-<h2 id="声明式编程方式"><a href="#声明式编程方式" class="headerlink" title="声明式编程方式"></a>声明式编程方式</h2><p>是时候看一个实际的例子。假设下面的prop，split函数是经过柯里化的（很多库已经提供这样的函数），我们可以看到，在合成<code>isFirstNameFourLetter</code>函数时，我们就像是在拼接<strong>管道</strong>（<strong>pipe</strong>）一样把一个个的函数拼接起来。而当我们给予<code>isFirstNameFourLetter</code>参数数据并调用它时，数据就会依次流过管道的每个结点并转换成我们想要的结果。</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> head = <span class="function"><span class="keyword">function</span>(<span class="params">x</span>) </span>&#123;</div><div class="line">  <span class="keyword">return</span> x[<span class="number">0</span>];</div><div class="line">&#125;;</div><div class="line"><span class="keyword">var</span> strLength = <span class="function"><span class="keyword">function</span>(<span class="params">x</span>) </span>&#123;</div><div class="line">  <span class="keyword">return</span> x.length;</div><div class="line">&#125;;</div><div class="line"><span class="keyword">var</span> isFourLetter = <span class="function"><span class="keyword">function</span>(<span class="params">x</span>) </span>&#123;</div><div class="line">  <span class="keyword">return</span> x === <span class="number">4</span>;</div><div class="line">&#125;;</div><div class="line"></div><div class="line"><span class="keyword">var</span> isFirstNameFourLetter = compose(isFourLetter, strLength, head, split(<span class="string">' '</span>), prop(<span class="string">'name'</span>));</div><div class="line"></div><div class="line">isFirstNameFourLetter(&#123;</div><div class="line">    name: <span class="string">'Jon Snow'</span></div><div class="line">&#125;);</div><div class="line"><span class="comment">// false</span></div></pre></td></tr></table></figure>
-<p>函数式编程就是这样的<strong>声明式</strong>（<strong>declarative</strong>）的编程方式。在函数式编程里，我们大多数时候是在拼接管道，希望数据流过管道后转变成我们想要的结果。与之相对应的，是<strong>命令式</strong>（<strong>imperative</strong>）的编程方式，在命令式的编程方式里，我们的思维是紧跟着程序指令的执行顺序的，我们在告诉计算机，先执行A指令，再执行B指令。</p>
-<p>如果你用过SQL，或者是UNIX命令的管道，你可能已经感受到了声明式编程的优势。</p>
-<h2 id="Functor"><a href="#Functor" class="headerlink" title="Functor"></a>Functor</h2><p>到目前为止，我们的函数式编程有很多任务还是完成不了，比如下面这些：</p>
-<ul>
-<li>条件分支</li>
-<li>异常处理</li>
-<li>读写磁盘</li>
-<li>网络请求</li>
-<li>异步任务</li>
-</ul>
-<p>我们来看一个最简单的例子，假如我们在调用上面的<code>isFirstNameFourLetter</code>函数时，传进的参数不包含<code>name</code>属性，运行该函数会怎样？你可以试一下，在执行<code>prop(&#39;name&#39;)</code>时，会返回<code>undefine</code>，执行<code>split(&#39; &#39;)</code>时会抛异常。</p>
-<p>我们的纯函数跟我们的管道只能有一个输入和一个输出，我们怎么处理这种异常的分支呢？为此，我们引进一个容器类<code>Maybe</code>，来作为流经我们管道的数据类型。</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">var</span> Maybe = <span class="function"><span class="keyword">function</span>(<span class="params">x</span>) </span>&#123;</div><div class="line">  <span class="keyword">this</span>.__value = x;</div><div class="line">&#125;;</div><div class="line"></div><div class="line">Maybe.of = <span class="function"><span class="keyword">function</span>(<span class="params">x</span>) </span>&#123;</div><div class="line">  <span class="keyword">return</span> <span class="keyword">new</span> Maybe(x);</div><div class="line">&#125;;</div><div class="line"></div><div class="line">Maybe.prototype.isNothing = <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</div><div class="line">  <span class="keyword">return</span> (<span class="keyword">this</span>.__value === <span class="literal">null</span> || <span class="keyword">this</span>.__value === <span class="literal">undefined</span>);</div><div class="line">&#125;;</div><div class="line"></div><div class="line">Maybe.prototype.map = <span class="function"><span class="keyword">function</span>(<span class="params">f</span>) </span>&#123;</div><div class="line">  <span class="keyword">return</span> <span class="keyword">this</span>.isNothing() ? Maybe.of(<span class="literal">null</span>) : Maybe.of(f(<span class="keyword">this</span>.__value));</div><div class="line">&#125;;</div></pre></td></tr></table></figure>
-<p>我们对<code>Maybe</code>内的数据的所有操作，都要通过<code>map</code>方法把纯函数传进<code>Maybe</code>容器里。而<code>map</code>方法的返回，依然是<code>Maybe</code>实例。我们可以像下面这样直接拼接管道并运行：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">Maybe.of(&#123;</div><div class="line">    name: <span class="string">'Jon Snow'</span></div><div class="line">&#125;).map(prop(<span class="string">'name'</span>)).map(split(<span class="string">' '</span>)).map(head).map(strLength).map(isFourLetter);</div><div class="line"><span class="comment">//=&gt; Maybe(false)</span></div><div class="line"></div><div class="line">Maybe.of(&#123;</div><div class="line">    nickname: <span class="string">'Jon Snow'</span></div><div class="line">&#125;).map(prop(<span class="string">'name'</span>)).map(split(<span class="string">' '</span>)).map(head).map(strLength).map(isFourLetter);</div><div class="line"><span class="comment">//=&gt; Maybe(null)</span></div></pre></td></tr></table></figure>
-<p>像<code>Maybe</code>这样的容器类，我们称之为<strong>functor</strong>:</p>
-<blockquote>
-<p>functor 是实现了 map 函数并遵守一些特定规则的容器类型。</p>
-</blockquote>
-<p>学习函数式编程，很多时候就是在学习各种各样的functor：</p>
-<ul>
-<li>Maybe：外理null，undefined等边界情况</li>
-<li>Either：处理异常错误</li>
-<li>IO：处理磁盘读写</li>
-<li>Task：处理异步任务</li>
-<li>Stream：处理事件流</li>
-</ul>
-<p>要把这些functor讲清楚，我们同时需要了解<strong>monad</strong>概念，由于本文的篇幅原因，这里不作详述。但我相信，如果你已经找到函数式编程的感觉，学习这些functor并不是一件难事。</p>
-<h2 id="范畴论"><a href="#范畴论" class="headerlink" title="范畴论"></a>范畴论</h2><p>接下来，我们来了解一下函数式编程的来源，<strong>范畴论</strong>（<strong>category theory</strong>）。范畴论是一门很抽象的数学分支，范畴论希望通过统一的形式来处理其它多门数学分支，如集合论（set theory），逻辑学（logic）等等。</p>
-<p>在范畴论里，<strong>范畴</strong>（<strong>category</strong>）包含以下几个部分：</p>
-<ul>
-<li>对象集：一个例子是类型<code>String</code>，<code>Boolean</code>，<code>Number</code>，<code>Object</code>等的所有可能取值的集合。</li>
-<li>态射集：态射即纯函数，或者说是对象之间的有向边，一个对象通过态射可以映射到同一范畴里的另一个对象。</li>
-<li>态射合成的概念：即函数合成的概念。</li>
-<li>identity态射：一个特殊的态射，任何对象经过该态射总是映射回自己。</li>
-</ul>
-<p>范畴论里的另一个重要的概念就是<strong>functor</strong>。functor把一个范畴映射到另一个范畴，且保持了原范畴的网络结构。</p>
-<div align="center"><br><img src="/images/functional-programming/catmap.png" alt=""><br></div>
-
-<p>如上图所示，原范畴C里的对象<code>a</code>，经过functor F映射后变成范畴D里的对象<code>Fa</code>（例如<code>Maybe.of(a)</code>），而原范畴里的任一态射<code>f</code>，经过functor F映射后变成范畴D里的新态射<code>map(f)</code>。</p>
-<p>范畴论之所以能用统一的形式处理其它数学分支，在于范畴里的对象集可以是许多抽象的东西。比如用范畴论处理集合论时，对象可以是集合，而态射是集合间的函数。范畴里的对象甚至可以是另一个范畴，这也是范畴论抽象的原因。</p>
-<h2 id="最后"><a href="#最后" class="headerlink" title="最后"></a>最后</h2><p>至此，我们已经看到了函数式编程带来的种种好处。比如纯函数的可缓存性，可移植性，可测试性和可并发性。再比如声明式编程方式使编程站在一个更高的抽象层面，而不必去关心指令级别的细节。除此之外，函数式编程还得益于范畴论的许多数学定理。我们来看一个简单的例子：</p>
-<figure class="highlight js"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">compose(map(f), map(g)) === map(compose(f, g));</div></pre></td></tr></table></figure>
-<p>从这个定理我们知道，一个对象经过复合函数<code>compose(f, g)</code>的转换再映射到另一个范畴等价于先映射到另一个范畴再经过复合函数<code>compose(map(f), map(g))</code>的转换。为此，我们可以找出其中较优的路径（性能更高）来实现同一个需求。这种优化可以在底层实现而做到对开发者透明。就好比我们的数据库引擎升级了，但我们的SQL不用做任何改动。</p>
-<p>这只是范畴论众多有用的定理中的一个。本文限于篇幅，不能一一缀述，有兴趣的读者可以自己上网查阅。</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
       
     </footer>
   </div>
@@ -632,10 +419,11 @@
   </article>
 
 
-    
-  </section>
 
-  
+    <div class="post-spread">
+      
+    </div>
+  </div>
 
 
           </div>
@@ -643,6 +431,17 @@
 
 
           
+  <div class="comments" id="comments">
+    
+      <div id="disqus_thread">
+        <noscript>
+          Please enable JavaScript to view the
+          <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+        </noscript>
+      </div>
+    
+  </div>
+
 
         </div>
         
@@ -663,8 +462,17 @@
       
 
       
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
 
-      <section class="site-overview sidebar-panel sidebar-panel-active">
+      <section class="site-overview sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
           <img class="site-author-image" itemprop="image"
                src="https://avatars3.githubusercontent.com/u/11935315?v=4&amp;s=460"
@@ -708,6 +516,22 @@
 
       </section>
 
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Flux-amp-Redux"><span class="nav-number">2.</span> <span class="nav-text">Flux & Redux</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Store"><span class="nav-number">2.1.</span> <span class="nav-text">Store</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Action"><span class="nav-number">2.2.</span> <span class="nav-text">Action</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Reducer"><span class="nav-number">2.3.</span> <span class="nav-text">Reducer</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Objective-C的不适应性"><span class="nav-number">3.</span> <span class="nav-text">Objective-C的不适应性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Action的定义"><span class="nav-number">3.1.</span> <span class="nav-text">Action的定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Store的存储"><span class="nav-number">3.2.</span> <span class="nav-text">Store的存储</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reflow解决方案"><span class="nav-number">4.</span> <span class="nav-text">Reflow解决方案</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Store-1"><span class="nav-number">4.1.</span> <span class="nav-text">Store</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Action-1"><span class="nav-number">4.2.</span> <span class="nav-text">Action</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Subscriptions"><span class="nav-number">4.3.</span> <span class="nav-text">Subscriptions</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
       
 
       
@@ -831,10 +655,10 @@
   
 
   
-    <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.2"></script>
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.2"></script>
 <script type="text/javascript" src="/js/src/post-details.js?v=5.1.2"></script>
 
-  
+
 
   
 
@@ -852,6 +676,18 @@
       <script id="dsq-count-scr" src="https://zepos-blog.disqus.com/count.js" async></script>
     
 
+    
+      <script type="text/javascript">
+        var disqus_config = function () {
+          this.page.url = 'https://zepo.github.io/2017/09/30/reflow/';
+          this.page.identifier = '2017/09/30/reflow/';
+          this.page.title = 'Objective-C单向数据流方案';
+        };
+        var d = document, s = d.createElement('script');
+        s.src = 'https://zepos-blog.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', '' + +new Date());
+        (d.head || d.body).appendChild(s);
+      </script>
     
 
   
